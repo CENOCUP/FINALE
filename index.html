@@ -1,0 +1,77 @@
+function renderRankingGeral() {
+        let stats = {};
+        
+        const processarDados = (lista, isHistorico) => {
+            lista.forEach((j, i) => {
+                if(!stats[j.tecnico]) {
+                    stats[j.tecnico] = { 
+                        t: j.tecnico, part: 0, j: 0, v: 0, e: 0, d: 0, 
+                        gp: 0, gc: 0, pts: 0, fAcum: 0, titulos: 0 
+                    };
+                }
+                let s = stats[j.tecnico];
+                s.part++;
+                s.j += ((j.v||0) + (j.e||0) + (j.d||0));
+                s.v += (j.v||0); s.e += (j.e||0); s.d += (j.d||0);
+                s.gp += (j.gp||0); s.gc += (j.gc||0);
+                s.pts += ((j.v*3) + (j.e));
+                
+                // CÁLCULO DA FORÇA COM BÓNUS DE COLOCAÇÃO
+                let fBase = calcBaseForca(j.gp, j.gc);
+                let bonus = 0;
+                if(i === 0) bonus = 20;
+                else if(i === 1) bonus = 10;
+                else if(i === 2) bonus = 5;
+                else if(i === lista.length-1 && lista.length > 3) bonus = -5;
+                
+                s.fAcum += (fBase + bonus); // Agora soma o bónus ao acumulado
+                if(isHistorico && i === 0) s.titulos++;
+            });
+        };
+
+        if(db.historico) db.historico.forEach(h => processarDados(h.dados, true));
+        processarDados(db.atual, false);
+
+        let list = Object.values(stats).sort((a,b) => b.pts - a.pts);
+
+        const table = document.getElementById('table-ranking');
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>POS</th>
+                    <th style="text-align:left">TÉCNICO</th>
+                    <th>PART</th>
+                    <th>J</th>
+                    <th>V</th>
+                    <th>E</th>
+                    <th>D</th>
+                    <th>GF</th>
+                    <th>GS</th>
+                    <th>SG</th>
+                    <th>P</th>
+                    <th>APR</th>
+                    <th>FORÇA MÉD (C/ BÓNUS)</th>
+                </tr>
+            </thead>
+            <tbody>${list.map((j, i) => {
+                const apr = j.j > 0 ? ((j.pts / (j.j * 3)) * 100).toFixed(1) : 0;
+                const fMed = (j.fAcum / j.part).toFixed(1);
+                const sg = j.gp - j.gc;
+                return `
+                    <tr>
+                        <td>${i+1}º</td>
+                        <td style="text-align:left"><b>${j.t}</b> ${j.titulos > 0 ? `<span style="color:var(--gold)">🏆${j.titulos}</span>` : ''}</td>
+                        <td>${j.part}</td>
+                        <td>${j.j}</td>
+                        <td>${j.v}</td>
+                        <td>${j.e}</td>
+                        <td style="color:var(--danger)">${j.d}</td>
+                        <td>${j.gp}</td>
+                        <td>${j.gc}</td>
+                        <td style="color:${sg >= 0 ? 'var(--neon)' : 'var(--danger)'}">${sg}</td>
+                        <td style="color:var(--neon); font-weight:bold">${j.pts}</td>
+                        <td>${apr}%</td>
+                        <td style="color:var(--gold); font-weight:bold">${fMed}</td>
+                    </tr>`;
+            }).join('')}</tbody>`;
+    }
